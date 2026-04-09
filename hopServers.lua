@@ -258,18 +258,26 @@ end
 -- main process
 checkKicked() -- check if the player got kicked and teleport back to the same server if true
 
-while true do 
-    local jobID = getJobID() --stores job ID
-    print(jobID) -- print the job ID to see if it's retrieving correctly (can be removed later)
+local scannedServers = {} -- stores already scanned servers
 
-    if jobID then 
-        checkBrainrots() -- check for brainrots in the server
-        task.wait(getgenv().config.bot_stay) -- wait for the specified time before checking for brainrots
-        local success, result = pcall(function() teleportService:TeleportToPlaceInstance(sabPlaceID, jobID, player) end) --teleport to the server with the job ID
+while true do 
+    local jobID = getJobID()
+    print(jobID)
+
+    if jobID then
+        -- only scan if haven't scanned this server yet
+        if not scannedServers[game.JobId] then
+            scannedServers[game.JobId] = true  -- mark as scanned
+            checkBrainrots()
+        end
+        task.wait(getgenv().config.bot_stay)
+        local success, result = pcall(function() 
+            teleportService:TeleportToPlaceInstance(sabPlaceID, jobID, player) 
+        end)
         if not success then
-            print("Teleport failed:", result)  -- see error
+            print("Teleport failed:", result)
         end
     else 
-        task.wait(2) -- waits 5 seconds before trying to get a new job ID if no valid job ID was found
+        task.wait(2)
     end
 end
