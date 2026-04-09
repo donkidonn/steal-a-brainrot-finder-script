@@ -1,12 +1,3 @@
-getgenv().config = {
-    lowtier_webhook = "WEBHOOK_URL", -- webhook url to send the notification to
-    hightier_webhook = "WEBHOOK_URL", -- webhook url to send the notification to
-    bigtier_webhook = "WEBHOOK_URL", -- webhook url to send the notification to
-    min_player_count = 1, -- minimum player count in the server for the bot to join
-    fullhop_count = 1, -- number of times the bot wiil attenpt to enter the full server
-    bot_stay = 1.5 -- time in seconds the bot will stay in the server before hopping to another one (if the coin is not found)
-}
-
 repeat wait() until game:IsLoaded() -- wait until the game is loaded
 
 -- get the local player and their username
@@ -153,6 +144,42 @@ local function sendWebhook(brainrotList, webhookUrl)
                     embeds = {{
                         title = "Brainrots Found!",
                         description = description,
+                        color = 16711680,  -- red color (decimal RGB)
+                        
+                        -- author section (top of embed)
+                        author = {
+                            name = username,  -- your player name!
+                            icon_url = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. player.UserId .. "&width=420&height=420&format=png"
+                        },
+                        
+                        -- fields (inline key-value pairs)
+                        fields = {
+                            {
+                                name = "Server",
+                                value = game.JobId,
+                                inline = true
+                            },
+                            {
+                                name = "Players",
+                                value = #player_service:GetPlayers() .. "/8",
+                                inline = true
+                            },
+                            {
+                                name = "Player",
+                                value = username,
+                                inline = true
+                            }
+                        },
+                        
+                        -- footer (bottom of embed)
+                        footer = {
+                            text = "Steal A Brainrot • " .. os.date("%X")  -- current time
+                        },
+                        
+                        -- thumbnail (small image top right)
+                        thumbnail = {
+                            url = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. player.UserId .. "&width=420&height=420&format=png"
+                        }
                     }}
                 })
             })
