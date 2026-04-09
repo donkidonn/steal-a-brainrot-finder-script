@@ -96,15 +96,16 @@ local function checkKicked()
         if child.Name == "ErrorPrompt" then
             local jobID = getJobID()
             task.wait(0.5)
-            local hopcount = 0
-            repeat
-                pcall(function() teleportService:TeleportToPlaceInstance(sabPlaceID, jobID, player) end)
-                hopcount = hopcount + 1
-                task.wait(5)
-            until character or hopcount >= getgenv().config.fullhop_count
+            if jobID then
+                pcall(function() 
+                    teleportService:TeleportToPlaceInstance(sabPlaceID, jobID, player)
+                end)
+            else
+                print("No valid server found after kick!")
+            end
         end
-    end)
-end
+    end)   -- ← closes Connect function
+end        -- ← closes checkKicked function
 
 --parse value from brainrot generation (value)
 local function parseValue(text)
