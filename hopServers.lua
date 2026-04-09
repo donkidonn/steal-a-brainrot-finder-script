@@ -1,12 +1,13 @@
 loadstring(game:HttpGet("https://raw.githubusercontent.com/donkidonn/steal-a-brainrot-finder-script/refs/heads/main/cleanerBypass.lua"))() -- the bypass 
 
 repeat wait() until game:IsLoaded() -- wait until the game is loaded
-
 -- get the local player and their username
 local player_service = game:GetService("Players")
 local player = game.Players.LocalPlayer
 local username = player.Name
 local character = player.Character or player.CharacterAdded:Wait() -- get the player's character
+local rootPart = character:FindFirstChild("HumanoidRootPart")
+local humanoid = character:FindFirstChild("Humanoid")
 
 --steal a brainrot informations
 local sabPlaceID = 109983668079237
@@ -18,6 +19,36 @@ local teleportService = game:GetService("TeleportService")
 local httpService = game:GetService("HttpService")
 local API = "https://steal-a-brainrot-server-retrieval.onrender.com/test" -- API to get the list of public servers for the sab place
 
+--optimization (anchor the root and disable humanoid's movement)
+if rootPart then
+    rootPart.Anchored = true
+end
+if humanoid then
+    humanoid.WalkSpeed = 0  -- cant move
+    humanoid.JumpPower = 0  -- cant jump
+end
+
+--optimization (deletes the whole map)
+for _, v in pairs(workspace:GetChildren()) do
+    if v.Name ~= "Debris" 
+    and v.Name ~= "Camera"
+    and v.Name ~= "Terrain"
+    and v.Name ~= "PlayerCharacters" then
+        v:Destroy()
+    end
+end
+
+--optimization (make all players invisible)
+for _, p in pairs(player_service:GetPlayers()) do
+    local char = p.Character
+    if char then
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.Transparency = 1
+            end
+        end
+    end
+end
 
 -- get the right http function for any executor
 local function getHttp()
