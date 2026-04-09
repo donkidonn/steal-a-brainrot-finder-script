@@ -101,6 +101,78 @@ end)
 settings().Rendering.QualityLevel = 1
 game:GetService("Lighting").GlobalShadows = false
 
+-- HUD
+local serversHopped = 0
+local startTime = tick()
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "BotHUD"
+screenGui.ResetOnSpawn = false
+screenGui.IgnoreGuiInset = true  
+screenGui.Parent = game:GetService("CoreGui")
+
+-- black background
+local bg = Instance.new("Frame")
+bg.Size = UDim2.new(1, 0, 1, 0)
+bg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+bg.BackgroundTransparency = 0
+bg.BorderSizePixel = 0
+bg.Parent = screenGui
+
+-- container for labels
+local container = Instance.new("Frame")
+container.Size = UDim2.new(0.3, 0, 0.35, 0)
+container.Position = UDim2.new(0.35, 0, 0.35, 0)
+container.BackgroundTransparency = 1
+container.Parent = bg
+
+-- auto stack labels
+local listLayout = Instance.new("UIListLayout")
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+listLayout.Padding = UDim.new(0.05, 0)
+listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+listLayout.Parent = container
+
+-- helper function to create labels
+local function createLabel(text, color, order)
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 0.2, 0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = color
+    label.TextScaled = true
+    label.Font = Enum.Font.GothamBold
+    label.Text = text
+    label.LayoutOrder = order
+    label.Parent = container
+    return label
+end
+
+-- create labels
+local titleLabel = createLabel(" Steal a Brainrot Finder", Color3.fromRGB(255, 255, 255), 1)
+local usernameLabel = createLabel("User: " .. username, Color3.fromRGB(0, 200, 255), 2)
+local fpsLabel = createLabel("FPS: 0", Color3.fromRGB(0, 255, 0), 3)
+local runtimeLabel = createLabel("Runtime: 0m 0s", Color3.fromRGB(255, 255, 0), 4)
+
+-- update HUD every frame
+local RunService = game:GetService("RunService")
+local lastTime = tick()
+
+RunService.RenderStepped:Connect(function()
+    local now = tick()
+    local fps = math.floor(1 / (now - lastTime))
+    lastTime = now
+    
+    -- update FPS
+    fpsLabel.Text = "FPS: " .. fps
+    
+    -- update runtime
+    local elapsed = math.floor(tick() - startTime)
+    local mins = math.floor(elapsed / 60)
+    local secs = elapsed % 60
+    runtimeLabel.Text = string.format("Runtime: %dm %ds", mins, secs)
+    
+end)
+
 -- get the right http function for any executor
 local function getHttp()
     return http_request or request or http and http.request
