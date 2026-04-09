@@ -19,36 +19,87 @@ local teleportService = game:GetService("TeleportService")
 local httpService = game:GetService("HttpService")
 local API = "https://steal-a-brainrot-server-retrieval.onrender.com/test" -- API to get the list of public servers for the sab place
 
---optimization (anchor the root and disable humanoid's movement)
+--OPTIMIZATIONS
+-- create invisible floor under character FIRST
+local floor
 if rootPart then
-    rootPart.Anchored = true
-end
-if humanoid then
-    humanoid.WalkSpeed = 0  -- cant move
-    humanoid.JumpPower = 0  -- cant jump
+    floor = Instance.new("Part")
+    floor.Size = Vector3.new(50, 1, 50)
+    floor.Position = Vector3.new(
+        rootPart.Position.X,
+        rootPart.Position.Y - 3,
+        rootPart.Position.Z
+    )
+    floor.Anchored = true
+    floor.CanCollide = true
+    floor.Transparency = 1
+    floor.Parent = workspace
 end
 
---optimization (deletes the whole map)
+-- disable humanoid movement
+if humanoid then
+    humanoid.WalkSpeed = 0
+    humanoid.JumpPower = 0
+end
+
+-- delete map
 for _, v in pairs(workspace:GetChildren()) do
     if v.Name ~= "Debris" 
     and v.Name ~= "Camera"
     and v.Name ~= "Terrain"
-    and v.Name ~= "PlayerCharacters" then
+    and v.Name ~= "PlayerCharacters"
+    and v ~= floor then  -- dont delete our floor!
         v:Destroy()
     end
 end
 
---optimization (make all players invisible)
+-- remove animations
 for _, p in pairs(player_service:GetPlayers()) do
     local char = p.Character
     if char then
-        for _, part in pairs(char:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.Transparency = 1
+        local animate = char:FindFirstChild("Animate")
+        if animate then animate:Destroy() end
+        
+        local animator = char:FindFirstChildOfClass("Animator")
+        if animator then
+            for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+                track:Stop()
+                track:Destroy()
             end
         end
     end
 end
+
+-- delete animation assets
+local animations = game:GetService("ReplicatedStorage"):FindFirstChild("Animations")
+if animations then
+    animations:Destroy()
+end
+
+-- remove GUIs except RobloxPromptGui
+local playerGui = player:FindFirstChildOfClass("PlayerGui")
+if playerGui then
+    for _, gui in pairs(playerGui:GetChildren()) do
+        if gui.Name ~= "RobloxPromptGui" then
+            gui:Destroy()
+        end
+    end
+end
+
+-- handle future players joining
+player_service.PlayerAdded:Connect(function(newPlayer)
+    newPlayer.CharacterAdded:Connect(function(newChar)
+        for _, part in pairs(newChar:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.Transparency = 1
+            end
+        end
+    end)
+end)
+
+-- lower graphics
+settings().Rendering.QualityLevel = 1
+game:GetService("Lighting").GlobalShadows = false
 
 -- get the right http function for any executor
 local function getHttp()
