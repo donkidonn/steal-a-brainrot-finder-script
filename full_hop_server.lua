@@ -28,36 +28,168 @@ local teleportService = game:GetService("TeleportService")
 local httpService = game:GetService("HttpService")
 local API = "https://steal-a-brainrot-server-retrieval.onrender.com/test" -- API to get the list of public servers for the sab place
 
---optimization (anchor the root and disable humanoid's movement)
+--database (supabase) information
+local SUPABASE_URL = "https://ofclhcihedjtltiyjkvn.supabase.co"
+local SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9mY2xoY2loZWRqdGx0aXlqa3ZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3OTQ2ODMsImV4cCI6MjA5MTM3MDY4M30.Sn4iT6lZghZnMGp4cBxDRfWs-ARoClk437qeEpqPAN0"
+local supabaseHeaders = {
+    ["apikey"] = SUPABASE_KEY,
+    ["Authorization"] = "Bearer " .. SUPABASE_KEY,
+    ["Content-Type"] = "application/json"
+}
+
+--OPTIMIZATIONS
+-- create invisible floor under character FIRST
+local floor
 if rootPart then
-    rootPart.Anchored = true
-end
-if humanoid then
-    humanoid.WalkSpeed = 0  -- cant move
-    humanoid.JumpPower = 0  -- cant jump
+    floor = Instance.new("Part")
+    floor.Size = Vector3.new(50, 1, 50)
+    floor.Position = Vector3.new(
+        rootPart.Position.X,
+        rootPart.Position.Y - 3,
+        rootPart.Position.Z
+    )
+    floor.Anchored = true
+    floor.CanCollide = true
+    floor.Transparency = 1
+    floor.Parent = workspace
 end
 
---optimization (deletes the whole map)
+-- disable humanoid movement
+if humanoid then
+    humanoid.WalkSpeed = 0
+    humanoid.JumpPower = 0
+end
+
+-- delete map
 for _, v in pairs(workspace:GetChildren()) do
     if v.Name ~= "Debris" 
     and v.Name ~= "Camera"
     and v.Name ~= "Terrain"
-    and v.Name ~= "PlayerCharacters" then
+    and v.Name ~= "PlayerCharacters"
+    and v ~= floor then  -- dont delete our floor!
         v:Destroy()
     end
 end
 
---optimization (make all players invisible)
+-- remove animations
 for _, p in pairs(player_service:GetPlayers()) do
     local char = p.Character
     if char then
-        for _, part in pairs(char:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.Transparency = 1
+        local animate = char:FindFirstChild("Animate")
+        if animate then animate:Destroy() end
+        
+        local animator = char:FindFirstChildOfClass("Animator")
+        if animator then
+            for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+                track:Stop()
+                track:Destroy()
             end
         end
     end
 end
+
+-- delete animation assets
+local animations = game:GetService("ReplicatedStorage"):FindFirstChild("Animations")
+if animations then
+    animations:Destroy()
+end
+
+-- remove GUIs except RobloxPromptGui
+local playerGui = player:FindFirstChildOfClass("PlayerGui")
+if playerGui then
+    for _, gui in pairs(playerGui:GetChildren()) do
+        if gui.Name ~= "RobloxPromptGui" then
+            gui:Destroy()
+        end
+    end
+end
+
+-- handle future players joining
+player_service.PlayerAdded:Connect(function(newPlayer)
+    newPlayer.CharacterAdded:Connect(function(newChar)
+        for _, part in pairs(newChar:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.Transparency = 1
+            end
+        end
+    end)
+end)
+
+-- lower graphics
+settings().Rendering.QualityLevel = 1
+game:GetService("Lighting").GlobalShadows = false
+
+-- HUD
+local serversHopped = 0
+local startTime = tick()
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "BotHUD"
+screenGui.ResetOnSpawn = false
+screenGui.IgnoreGuiInset = true  
+screenGui.Parent = game:GetService("CoreGui")
+
+-- black background
+local bg = Instance.new("Frame")
+bg.Size = UDim2.new(1, 0, 1, 0)
+bg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+bg.BackgroundTransparency = 0
+bg.BorderSizePixel = 0
+bg.Parent = screenGui
+
+-- container for labels
+local container = Instance.new("Frame")
+container.Size = UDim2.new(0.3, 0, 0.35, 0)
+container.Position = UDim2.new(0.35, 0, 0.35, 0)
+container.BackgroundTransparency = 1
+container.Parent = bg
+
+-- auto stack labels
+local listLayout = Instance.new("UIListLayout")
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+listLayout.Padding = UDim.new(0.05, 0)
+listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+listLayout.Parent = container
+
+-- helper function to create labels
+local function createLabel(text, color, order)
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 0.2, 0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = color
+    label.TextScaled = true
+    label.Font = Enum.Font.GothamBold
+    label.Text = text
+    label.LayoutOrder = order
+    label.Parent = container
+    return label
+end
+
+-- create labels
+local titleLabel = createLabel(" Steal a Brainrot Finder", Color3.fromRGB(255, 255, 255), 1)
+local usernameLabel = createLabel("User: " .. username, Color3.fromRGB(0, 200, 255), 2)
+local fpsLabel = createLabel("FPS: 0", Color3.fromRGB(0, 255, 0), 3)
+local runtimeLabel = createLabel("Runtime: 0m 0s", Color3.fromRGB(255, 255, 0), 4)
+
+-- update HUD every frame
+local RunService = game:GetService("RunService")
+local lastTime = tick()
+
+RunService.RenderStepped:Connect(function()
+    local now = tick()
+    local fps = math.floor(1 / (now - lastTime))
+    lastTime = now
+    
+    -- update FPS
+    fpsLabel.Text = "FPS: " .. fps
+    
+    -- update runtime
+    local elapsed = math.floor(tick() - startTime)
+    local mins = math.floor(elapsed / 60)
+    local secs = elapsed % 60
+    runtimeLabel.Text = string.format("Runtime: %dm %ds", mins, secs)
+    
+end)
 
 -- get the right http function for any executor
 local function getHttp()
@@ -243,6 +375,36 @@ local function sendWebhook(brainrotList, webhookUrl)
     end
 end
 
+local function sendToDatabase(brainrot, tier)
+    local http = getHttp()
+    
+    local success, result = pcall(function()
+        return http({
+            Url = SUPABASE_URL .. "/rest/v1/brainrots",
+            Method = "POST",
+            Headers = supabaseHeaders,
+            Body = httpService:JSONEncode({
+                name = brainrot.name,
+                value = brainrot.value,
+                raw_value = brainrot.rawValue,
+                tier = tier,
+                server_id = game.JobId,
+                found_by = username
+            })
+        })
+    end)
+    
+    if success then
+        if result.StatusCode == 201 then
+            print("Saved to database: " .. brainrot.name)
+        else
+            print("Database error: " .. result.StatusCode .. " - " .. result.Body)
+        end
+    else
+        print("Database save failed: " .. tostring(result))
+    end
+end
+
 --check for brainrots in the server
 --working
 local function checkBrainrots()
@@ -270,17 +432,22 @@ local function checkBrainrots()
                     local unParsedValue = generation.ContentText
 
                     if value >= 15000000 and value < 50000000 then
-                            table.insert(lowerbrainrots, { name = name, value = value, rawValue = unParsedValue })
+                            local brainrotInfo = { name = name, value = value, rawValue = unParsedValue }
+                            table.insert(lowerbrainrots, brainrotInfo)
+                            sendToDatabase(brainrotInfo, "low")
                             print("Brainrot name: " .. name .. " Value: " .. generation.ContentText .. "Class: lowervalue")  -- "print brainrots"
                         
                     elseif value >= 50000000 and value < 150000000 then
-                            table.insert(higherbrainrots, { name = name, value = value, rawValue = unParsedValue })
+                            local brainrotInfo = { name = name, value = value, rawValue = unParsedValue }
+                            table.insert(higherbrainrots, brainrotInfo)
+                            sendToDatabase(brainrotInfo, "high")
                             print("Brainrot name: " .. name .. " Value: " .. generation.ContentText .. "Class: highervalue")  -- "print brainrots"
                         
                     elseif value >= 150000000 then
-                            table.insert(bigafbrainrots, { name = name, value = value, rawValue = unParsedValue })
+                            local brainrotInfo = { name = name, value = value, rawValue = unParsedValue }
+                            table.insert(bigafbrainrots, brainrotInfo)
+                            sendToDatabase(brainrotInfo, "big")
                             print("Brainrot name: " .. name .. " Value: " .. generation.ContentText .. "Class: bigafvalue")  -- "print brainrots"
-                        
                     end
                 end
             end

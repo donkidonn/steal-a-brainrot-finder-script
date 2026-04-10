@@ -19,6 +19,15 @@ local teleportService = game:GetService("TeleportService")
 local httpService = game:GetService("HttpService")
 local API = "https://steal-a-brainrot-server-retrieval.onrender.com/test" -- API to get the list of public servers for the sab place
 
+--database (supabase) information
+local SUPABASE_URL = "https://ofclhcihedjtltiyjkvn.supabase.co"
+local SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9mY2xoY2loZWRqdGx0aXlqa3ZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3OTQ2ODMsImV4cCI6MjA5MTM3MDY4M30.Sn4iT6lZghZnMGp4cBxDRfWs-ARoClk437qeEpqPAN0"
+local supabaseHeaders = {
+    ["apikey"] = SUPABASE_KEY,
+    ["Authorization"] = "Bearer " .. SUPABASE_KEY,
+    ["Content-Type"] = "application/json"
+}
+
 --OPTIMIZATIONS
 -- create invisible floor under character FIRST
 local floor
@@ -357,6 +366,36 @@ local function sendWebhook(brainrotList, webhookUrl)
     end
 end
 
+local function sendToDatabase(brainrot, tier)
+    local http = getHttp()
+    
+    local success, result = pcall(function()
+        return http({
+            Url = SUPABASE_URL .. "/rest/v1/brainrots",
+            Method = "POST",
+            Headers = supabaseHeaders,
+            Body = httpService:JSONEncode({
+                name = brainrot.name,
+                value = brainrot.value,
+                raw_value = brainrot.rawValue,
+                tier = tier,
+                server_id = game.JobId,
+                found_by = username
+            })
+        })
+    end)
+    
+    if success then
+        if result.StatusCode == 201 then
+            print("Saved to database: " .. brainrot.name)
+        else
+            print("Database error: " .. result.StatusCode .. " - " .. result.Body)
+        end
+    else
+        print("Database save failed: " .. tostring(result))
+    end
+end
+
 --check for brainrots in the server
 --working
 local function checkBrainrots()
@@ -384,17 +423,22 @@ local function checkBrainrots()
                     local unParsedValue = generation.ContentText
 
                     if value >= 15000000 and value < 50000000 then
-                            table.insert(lowerbrainrots, { name = name, value = value, rawValue = unParsedValue })
+                            local brainrotInfo = { name = name, value = value, rawValue = unParsedValue }
+                            table.insert(lowerbrainrots, brainrotInfo)
+                            sendToDatabase(brainrotInfo, "low")
                             print("Brainrot name: " .. name .. " Value: " .. generation.ContentText .. "Class: lowervalue")  -- "print brainrots"
                         
                     elseif value >= 50000000 and value < 150000000 then
-                            table.insert(higherbrainrots, { name = name, value = value, rawValue = unParsedValue })
+                            local brainrotInfo = { name = name, value = value, rawValue = unParsedValue }
+                            table.insert(higherbrainrots, brainrotInfo)
+                            sendToDatabase(brainrotInfo, "high")
                             print("Brainrot name: " .. name .. " Value: " .. generation.ContentText .. "Class: highervalue")  -- "print brainrots"
                         
                     elseif value >= 150000000 then
-                            table.insert(bigafbrainrots, { name = name, value = value, rawValue = unParsedValue })
+                            local brainrotInfo = { name = name, value = value, rawValue = unParsedValue }
+                            table.insert(bigafbrainrots, brainrotInfo)
+                            sendToDatabase(brainrotInfo, "big")
                             print("Brainrot name: " .. name .. " Value: " .. generation.ContentText .. "Class: bigafvalue")  -- "print brainrots"
-                        
                     end
                 end
             end
