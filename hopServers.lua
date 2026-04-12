@@ -366,6 +366,7 @@ local function sendWebhook(brainrotList, webhookUrl)
     end
 end
 
+--send brainrot information to the database
 local function sendToDatabase(brainrot, tier)
     local http = getHttp()
     
