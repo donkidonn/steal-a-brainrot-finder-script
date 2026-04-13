@@ -334,7 +334,7 @@ local function sendWebhook(brainrotList, webhookUrl)
     local embedBody = {
         embeds = {{
             title  = "🎯 Brainrot Found!",
-            color  = 16776960, --yellow
+            color  = 16776960,
             fields = {
                 {
                     name   = "🐾 Name",
@@ -352,7 +352,7 @@ local function sendWebhook(brainrotList, webhookUrl)
                     inline = true
                 },
                 {
-                    name   = "📋 All Brainrots (>15M/s)",
+                    name   = "📋 All Brainrots (>5M/s)",
                     value  = allList,
                     inline = false
                 },
@@ -428,83 +428,112 @@ end
 --check for brainrots in the server
 --working
 local function checkBrainrots()
-    local lowerbrainrots = {} -- stores 5m to 50m brainrots value
-    local higherbrainrots = {} -- stores 50m to 150m brainrots value
-    local bigafbrainrots = {} -- stores 150m to 1b brainrots value
-    local beyondbestbrainrots = {} -- stores above 1b brainrots value
-    local OG = {} -- stores brainrots with OG rarity (regardless of value)
-    
+    local allBrainrots = {} -- stores ALL brainrots found (5m+)
+    local OG = {}           -- stores OG rarity brainrots separately
+    local highest = 0       -- tracks highest value found
+    local hasOG = false     -- tracks if any OG found
+
     local debris = workspace:FindFirstChild("Debris")
     if not debris then return end
-    
+
     for _, template in ipairs(debris:GetChildren()) do
         if template.Name == "FastOverheadTemplate" then
             local animalOverhead = template:FindFirstChild("AnimalOverhead")
             if animalOverhead then
-                local generation = animalOverhead:FindFirstChild("Generation") -- stores the price of the brainrot ($/s value)
-                local displayName = animalOverhead:FindFirstChild("DisplayName") -- stores the display name of the brainrot
-                local rarity = animalOverhead:FindFirstChild("Rarity") -- stores brainrot rarity
+                local generation  = animalOverhead:FindFirstChild("Generation")
+                local displayName = animalOverhead:FindFirstChild("DisplayName")
+                local rarity      = animalOverhead:FindFirstChild("Rarity")
                 local mutationObj = animalOverhead:FindFirstChild("Mutation")
-                local mutations = (mutationObj and mutationObj.Visible and mutationObj.ContentText ~= "") 
-                    and mutationObj.ContentText or "" -- added visibility check for mutation (some brainrots have invisible mutation label but still have mutation)
-                
-                --checks
+                local mutations   = (mutationObj and mutationObj.Visible and mutationObj.ContentText ~= "")
+                    and mutationObj.ContentText or ""
+
                 if generation and displayName and rarity and generation.ContentText:find("/s") then
-
-                    local value = parseValue(generation.ContentText)
+                    local value        = parseValue(generation.ContentText)
                     local mutationtext = mutations
-                    local name = mutationtext ~= "" and ("[" .. mutationtext .. "] " .. displayName.ContentText) or displayName.ContentText -- sets name with mutation if mutation exist, otherwise just the display name
+                    local name         = mutationtext ~= ""
+                        and ("[" .. mutationtext .. "] " .. displayName.ContentText)
+                        or displayName.ContentText
                     local unParsedValue = generation.ContentText
-                    local rarityText = rarity.ContentText
+                    local rarityText    = rarity.ContentText
 
+                    -- collect OG separately
                     if rarityText == "OG" then
-                            local brainrotInfo = { name = name, value = value, rawValue = unParsedValue }
-                            table.insert(OG, brainrotInfo)
-                            sendToDatabase(brainrotInfo, "OG")
-                            print("Brainrot name: " .. name .. " Value: " .. generation.ContentText .. " Class: OG")  -- "print OG brainrots"
-                    
-                    elseif value >= 15000000 and value < 50000000 then -- value is between 15m and 50m
-                            local brainrotInfo = { name = name, value = value, rawValue = unParsedValue }
-                            table.insert(lowerbrainrots, brainrotInfo)
-                            sendToDatabase(brainrotInfo, "low")
-                            print("Brainrot name: " .. name .. " Value: " .. generation.ContentText .. " Class: lowervalue")  -- "print brainrots"
-                        
-                    elseif value >= 50000000 and value < 150000000 then -- value is between 50m and 150m
-                            local brainrotInfo = { name = name, value = value, rawValue = unParsedValue }
-                            table.insert(higherbrainrots, brainrotInfo)
-                            sendToDatabase(brainrotInfo, "high")
-                            print("Brainrot name: " .. name .. " Value: " .. generation.ContentText .. " Class: highervalue")  -- "print brainrots"
-                        
-                    elseif value >= 150000000 and value < 1000000000 then -- value is between 150m and 1b
-                            local brainrotInfo = { name = name, value = value, rawValue = unParsedValue }
-                            table.insert(bigafbrainrots, brainrotInfo)
-                            sendToDatabase(brainrotInfo, "big")
-                            print("Brainrot name: " .. name .. " Value: " .. generation.ContentText .. " Class: bigafvalue")  -- "print brainrots"
+                        local brainrotInfo = { name = name, value = value, rawValue = unParsedValue }
+                        table.insert(OG, brainrotInfo)
+                        task.spawn(function() sendToDatabase(brainrotInfo, "OG") end)
+                        hasOG = true
+                        print("Brainrot name: " .. name .. " Value: " .. generation.ContentText .. " Class: OG")
 
-                    elseif value > 1000000000 then -- value is above 1b
-                            local brainrotInfo = { name = name, value = value, rawValue = unParsedValue }
-                            table.insert(beyondbestbrainrots, brainrotInfo)
-                            sendToDatabase(brainrotInfo, "beyondbest")
-                            print("Brainrot name: " .. name .. " Value: " .. generation.ContentText .. " Class: beyondbestvalue")  -- "print brainrots"
+                    -- collect all 5m+ brainrots
+                    elseif value >= 5000000 then
+                        local brainrotInfo = { name = name, value = value, rawValue = unParsedValue }
+                        table.insert(allBrainrots, brainrotInfo)
+
+                        -- track highest
+                        if value > highest then
+                            highest = value
+                        end
+
+                        print("Brainrot name: " .. name .. " Value: " .. generation.ContentText)
                     end
                 end
             end
         end
     end
-    if #lowerbrainrots > 0 then
-        sendWebhook(lowerbrainrots, getgenv().config.lowtier_webhook) -- send low value brainrots to low tier webhook
+
+    -- send OG separately regardless
+    if hasOG and #OG > 0 then
+        task.spawn(function()
+            sendWebhook(OG, getgenv().config.og_webhook)
+        end)
     end
-    if #higherbrainrots > 0 then
-        sendWebhook(higherbrainrots, getgenv().config.hightier_webhook) -- send high value brainrots to high tier webhook
+
+    -- only proceed if highest is 15m+
+    if highest < 15000000 then
+        print("Highest brainrot is below 15M, skipping webhook")
+        return
     end
-    if #bigafbrainrots > 0 then
-        sendWebhook(bigafbrainrots, getgenv().config.bigtier_webhook) -- send big brainrots to legendary webhook
+
+    -- save all to database
+    for _, brainrot in ipairs(allBrainrots) do
+        local b = brainrot
+        local tier = "low"
+        if highest >= 1000000000 then
+            tier = "beyondbest"
+        elseif highest >= 150000000 then
+            tier = "big"
+        elseif highest >= 50000000 then
+            tier = "high"
+        else
+            tier = "low"
+        end
+        task.spawn(function() sendToDatabase(b, tier) end)
     end
-    if #beyondbestbrainrots > 0 then
-        sendWebhook(beyondbestbrainrots, getgenv().config.beyondbest_webhook) -- send beyond best brainrots to beyond best webhook
-    end
-    if #OG > 0 then
-        sendWebhook(OG, getgenv().config.og_webhook) -- send OG brainrots to OG webhook
+
+    -- send to ONE webhook based on highest value
+    if highest >= 1000000000 then
+        task.spawn(function()
+            sendWebhook(allBrainrots, getgenv().config.beyondbest_webhook)
+        end)
+        print("Sending to beyondbest webhook, highest: " .. highest)
+
+    elseif highest >= 150000000 then
+        task.spawn(function()
+            sendWebhook(allBrainrots, getgenv().config.bigtier_webhook)
+        end)
+        print("Sending to bigtier webhook, highest: " .. highest)
+
+    elseif highest >= 50000000 then
+        task.spawn(function()
+            sendWebhook(allBrainrots, getgenv().config.hightier_webhook)
+        end)
+        print("Sending to hightier webhook, highest: " .. highest)
+
+    elseif highest >= 15000000 then
+        task.spawn(function()
+            sendWebhook(allBrainrots, getgenv().config.lowtier_webhook)
+        end)
+        print("Sending to lowtier webhook, highest: " .. highest)
     end
 end
 
