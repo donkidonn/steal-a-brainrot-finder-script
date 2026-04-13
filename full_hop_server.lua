@@ -234,7 +234,7 @@ local function getJobID()
 
         --main jobid retrieving process
         for _, server in pairs(data.data) do
-            if server.playing >= getgenv().config.min_player_count -- greater or equal to the min player count
+            if server.playing >= 1 -- greater or equal to the min player count or 1
             and server.playing < server.maxPlayers  -- not full
             and server.id ~= game.JobId then        -- not current server
                 table.insert(jobIDStorage, server.id)
@@ -471,7 +471,7 @@ local function checkBrainrots()
                     if rarityText == "OG" then
                         local brainrotInfo = { name = name, value = value, rawValue = unParsedValue }
                         table.insert(OG, brainrotInfo)
-                        sendToDatabase(task.spawn(function() sendToDatabase(brainrotInfo, "OG") end))
+                        task.spawn(function() sendToDatabase(brainrotInfo, "OG") end)
                         hasOG = true
                         print("Brainrot name: " .. name .. " Value: " .. generation.ContentText .. " Class: OG")
 
