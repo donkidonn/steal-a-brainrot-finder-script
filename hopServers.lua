@@ -334,7 +334,7 @@ local function sendWebhook(brainrotList, webhookUrl)
     local embedBody = {
         embeds = {{
             title  = "🎯 Brainrot Found!",
-            color  = 16711680,
+            color  = 16776960, --yellow
             fields = {
                 {
                     name   = "🐾 Name",
