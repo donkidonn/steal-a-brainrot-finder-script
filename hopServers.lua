@@ -157,7 +157,7 @@ local function createLabel(text, color, order)
 end
 
 -- create labels
-local titleLabel = createLabel(" Grand Hub SAB Finder", Color3.fromRGB(255, 255, 255), 1)
+local titleLabel = createLabel(" Grand Notifier", Color3.fromRGB(255, 255, 255), 1)
 local usernameLabel = createLabel("User: " .. username, Color3.fromRGB(0, 200, 255), 2)
 local fpsLabel = createLabel("FPS: 0", Color3.fromRGB(0, 255, 0), 3)
 local runtimeLabel = createLabel("Runtime: 0m 0s", Color3.fromRGB(255, 255, 0), 4)
@@ -362,7 +362,7 @@ local function sendWebhook(brainrotList, webhookUrl)
                     inline = false
                 }
             },
-            footer    = { text = "🤖 Grand Hub SAB Notify" },
+            footer    = { text = "🤖 Grand Notifier" },
             thumbnail = imageUrl and { url = imageUrl } or nil
         }}
     }
