@@ -1,7 +1,9 @@
 getgenv().config = {
-    lowtier_webhook = "WEBHOOK_URL", -- webhook url to send the notification to
-    hightier_webhook = "WEBHOOK_URL", -- webhook url to send the notification to
-    bigtier_webhook = "WEBHOOK_URL", -- webhook url to send the notification to
+    lowtier_webhook = "WEBHOOK_URL", -- webhook url to send the notification to low tier channel (for brainrots between 15m and 50m)
+    hightier_webhook = "WEBHOOK_URL", -- webhook url to send the notification to high tier channel(for brainrots between 50m and 150m)
+    bigtier_webhook = "WEBHOOK_URL", -- webhook url to send the notification to legendary channel (for brainrots between 150m and 1b)
+    beyondbest_webhook = "WEBHOOK_URL", -- webhook url to send the notification to beyond best(for beyond best brainrots above 1b)
+    og_webhook = "WEBHOOK_URL", -- webhook url to send the notification to OG channel (for all OG rarity brainrots regardless of value)
     min_player_count = 1, -- minimum player count in the server for the bot to join
     fullhop_count = 1, -- number of times the bot wiil attenpt to enter the full server
     bot_stay = 1.5 -- time in seconds the bot will stay in the server before hopping to another one (if the coin is not found)
@@ -166,7 +168,7 @@ local function createLabel(text, color, order)
 end
 
 -- create labels
-local titleLabel = createLabel(" Steal a Brainrot Finder", Color3.fromRGB(255, 255, 255), 1)
+local titleLabel = createLabel(" Grand Hub SAB Finder", Color3.fromRGB(255, 255, 255), 1)
 local usernameLabel = createLabel("User: " .. username, Color3.fromRGB(0, 200, 255), 2)
 local fpsLabel = createLabel("FPS: 0", Color3.fromRGB(0, 255, 0), 3)
 local runtimeLabel = createLabel("Runtime: 0m 0s", Color3.fromRGB(255, 255, 0), 4)
@@ -294,80 +296,109 @@ local function parseValue(text)
     return num * (mults[suffix] or 1) -- return the parsed number (convert text to its number value)
 end
 
---webhook function to send brainrot information to the webhook
+-- fetch brainrot image from supabase image links table
+local function getImageUrl(brainrotName)
+    local http = getHttp()
+    if not http then return nil end
+
+    -- strip mutation prefix like "[Gold] " to get base name
+    local baseName = brainrotName:match("^%[.-%]%s*(.+)$") or brainrotName
+
+    local ok, result = pcall(function()
+        return http({
+            Url = SUPABASE_URL .. "/rest/v1/brainrot-image-links?brainrot_name=eq." 
+                .. httpService:UrlEncode(baseName) .. "&select=brainrot_imglink",
+            Method = "GET",
+            Headers = {
+                ["apikey"] = SUPABASE_KEY,
+                ["Authorization"] = "Bearer " .. SUPABASE_KEY,
+                ["Content-Type"] = "application/json"
+            }
+        })
+    end)
+
+    if ok and result then
+        local data = httpService:JSONDecode(result.Body)
+        if data and #data > 0 then
+            return data[1].brainrot_imglink
+        end
+    end
+    return nil
+end
+
+-- new sendWebhook function
 local function sendWebhook(brainrotList, webhookUrl)
     local http = getHttp()
-    
-    -- build the message
-    local description = ""
-    for _, brainrot in ipairs(brainrotList) do
-        description = description .. brainrot.name .. ": " .. brainrot.rawValue .. "\n"
+    if not http then return end
+
+    table.sort(brainrotList, function(a, b) return a.value > b.value end)
+
+    local biggest  = brainrotList[1]
+    local imageUrl = getImageUrl(biggest.name)
+    local unixTime = os.time()
+
+    local allList = ""
+    for _, b in ipairs(brainrotList) do
+        allList = allList .. "🔹 " .. b.name .. " | " .. b.rawValue .. "\n"
     end
-    
-    local maxRetries = 3  -- max retry attempts
+
+    local embedBody = {
+        embeds = {{
+            title  = "🎯 Brainrot Found!",
+            color  = 16711680,
+            fields = {
+                {
+                    name   = "🐾 Name",
+                    value  = "**" .. biggest.name .. "**",
+                    inline = true
+                },
+                {
+                    name   = "💰 Value",
+                    value  = "**" .. biggest.rawValue .. "**",
+                    inline = true
+                },
+                {
+                    name   = "👥 Players",
+                    value  = #player_service:GetPlayers() .. "/8",
+                    inline = true
+                },
+                {
+                    name   = "📋 All Brainrots (>15M/s)",
+                    value  = allList,
+                    inline = false
+                },
+                {
+                    name   = "🕐 Found",
+                    value  = "<t:" .. unixTime .. ":R>",
+                    inline = false
+                }
+            },
+            footer    = { text = "🤖 Grand Hub SAB Notify" },
+            thumbnail = imageUrl and { url = imageUrl } or nil
+        }}
+    }
+
+    local maxRetries = 3
     local retryCount = 0
-    local success = false
-    
+    local success    = false
+
     repeat
         local err
         success, err = pcall(function()
             http({
-                Url = webhookUrl,
-                Method = "POST",
-                Headers = {["Content-Type"] = "application/json"},
-                Body = httpService:JSONEncode({
-                    embeds = {{
-                        title = "Brainrots Found!",
-                        description = description,
-                        color = 16711680,  -- red color (decimal RGB)
-                        
-                        -- author section (top of embed)
-                        author = {
-                            name = username,  -- your player name!
-                            icon_url = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. player.UserId .. "&width=420&height=420&format=png"
-                        },
-                        
-                        -- fields (inline key-value pairs)
-                        fields = {
-                            {
-                                name = "Server",
-                                value = game.JobId,
-                                inline = true
-                            },
-                            {
-                                name = "Players",
-                                value = #player_service:GetPlayers() .. "/8",
-                                inline = true
-                            },
-                            {
-                                name = "Player",
-                                value = username,
-                                inline = true
-                            }
-                        },
-                        
-                        -- footer (bottom of embed)
-                        footer = {
-                            text = "Steal A Brainrot • " .. os.date("%X")  -- current time
-                        },
-                        
-                        -- thumbnail (small image top right)
-                        thumbnail = {
-                            url = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. player.UserId .. "&width=420&height=420&format=png"
-                        }
-                    }}
-                })
+                Url     = webhookUrl,
+                Method  = "POST",
+                Headers = { ["Content-Type"] = "application/json" },
+                Body    = httpService:JSONEncode(embedBody)
             })
         end)
-        
         if not success then
             retryCount = retryCount + 1
             print("Webhook failed, retrying... attempt " .. retryCount .. "/" .. maxRetries)
-            task.wait(2)  -- wait 2 seconds before retrying
+            task.wait(2)
         end
-        
     until success or retryCount >= maxRetries
-    
+
     if not success then
         print("Webhook failed after " .. maxRetries .. " attempts!")
     else
@@ -410,7 +441,10 @@ end
 local function checkBrainrots()
     local lowerbrainrots = {} -- stores 5m to 50m brainrots value
     local higherbrainrots = {} -- stores 50m to 150m brainrots value
-    local bigafbrainrots = {} -- stores 150m and above brainrots value
+    local bigafbrainrots = {} -- stores 150m to 1b brainrots value
+    local beyondbestbrainrots = {} -- stores above 1b brainrots value
+    local OG = {} -- stores brainrots with OG rarity (regardless of value)
+    
     local debris = workspace:FindFirstChild("Debris")
     if not debris then return end
     
@@ -421,46 +455,67 @@ local function checkBrainrots()
                 local generation = animalOverhead:FindFirstChild("Generation") -- stores the price of the brainrot ($/s value)
                 local displayName = animalOverhead:FindFirstChild("DisplayName") -- stores the display name of the brainrot
                 local rarity = animalOverhead:FindFirstChild("Rarity") -- stores brainrot rarity
-                local mutations = animalOverhead:FindFirstChild("Mutation") -- stores brainrot mutation
+                local mutationObj = animalOverhead:FindFirstChild("Mutation")
+                local mutations = (mutationObj and mutationObj.Visible and mutationObj.ContentText ~= "") 
+                    and mutationObj.ContentText or "" -- added visibility check for mutation (some brainrots have invisible mutation label but still have mutation)
                 
                 --checks
                 if generation and displayName and rarity and generation.ContentText:find("/s") then
 
                     local value = parseValue(generation.ContentText)
-                    local mutationtext = mutations and mutations.ContentText or ""
-                    local name = mutationtext .. " " .. displayName.ContentText
+                    local mutationtext = mutations
+                    local name = mutationtext ~= "" and ("[" .. mutationtext .. "] " .. displayName.ContentText) or displayName.ContentText -- sets name with mutation if mutation exist, otherwise just the display name
                     local unParsedValue = generation.ContentText
+                    local rarityText = rarity.ContentText
 
-                    if value >= 15000000 and value < 50000000 then
+                    if rarityText == "OG" then
+                            local brainrotInfo = { name = name, value = value, rawValue = unParsedValue }
+                            table.insert(OG, brainrotInfo)
+                            sendToDatabase(brainrotInfo, "OG")
+                            print("Brainrot name: " .. name .. " Value: " .. generation.ContentText .. " Class: OG")  -- "print OG brainrots"
+                    
+                    elseif value >= 15000000 and value < 50000000 then -- value is between 15m and 50m
                             local brainrotInfo = { name = name, value = value, rawValue = unParsedValue }
                             table.insert(lowerbrainrots, brainrotInfo)
                             sendToDatabase(brainrotInfo, "low")
-                            print("Brainrot name: " .. name .. " Value: " .. generation.ContentText .. "Class: lowervalue")  -- "print brainrots"
+                            print("Brainrot name: " .. name .. " Value: " .. generation.ContentText .. " Class: lowervalue")  -- "print brainrots"
                         
-                    elseif value >= 50000000 and value < 150000000 then
+                    elseif value >= 50000000 and value < 150000000 then -- value is between 50m and 150m
                             local brainrotInfo = { name = name, value = value, rawValue = unParsedValue }
                             table.insert(higherbrainrots, brainrotInfo)
                             sendToDatabase(brainrotInfo, "high")
-                            print("Brainrot name: " .. name .. " Value: " .. generation.ContentText .. "Class: highervalue")  -- "print brainrots"
+                            print("Brainrot name: " .. name .. " Value: " .. generation.ContentText .. " Class: highervalue")  -- "print brainrots"
                         
-                    elseif value >= 150000000 then
+                    elseif value >= 150000000 and value < 1000000000 then -- value is between 150m and 1b
                             local brainrotInfo = { name = name, value = value, rawValue = unParsedValue }
                             table.insert(bigafbrainrots, brainrotInfo)
                             sendToDatabase(brainrotInfo, "big")
-                            print("Brainrot name: " .. name .. " Value: " .. generation.ContentText .. "Class: bigafvalue")  -- "print brainrots"
+                            print("Brainrot name: " .. name .. " Value: " .. generation.ContentText .. " Class: bigafvalue")  -- "print brainrots"
+
+                    elseif value > 1000000000 then -- value is above 1b
+                            local brainrotInfo = { name = name, value = value, rawValue = unParsedValue }
+                            table.insert(beyondbestbrainrots, brainrotInfo)
+                            sendToDatabase(brainrotInfo, "beyondbest")
+                            print("Brainrot name: " .. name .. " Value: " .. generation.ContentText .. " Class: beyondbestvalue")  -- "print brainrots"
                     end
                 end
             end
         end
     end
     if #lowerbrainrots > 0 then
-        sendWebhook(lowerbrainrots, getgenv().config.lowtier_webhook)
+        sendWebhook(lowerbrainrots, getgenv().config.lowtier_webhook) -- send low value brainrots to low tier webhook
     end
     if #higherbrainrots > 0 then
-        sendWebhook(higherbrainrots, getgenv().config.hightier_webhook)
+        sendWebhook(higherbrainrots, getgenv().config.hightier_webhook) -- send high value brainrots to high tier webhook
     end
     if #bigafbrainrots > 0 then
-        sendWebhook(bigafbrainrots, getgenv().config.bigtier_webhook)
+        sendWebhook(bigafbrainrots, getgenv().config.bigtier_webhook) -- send big brainrots to legendary webhook
+    end
+    if #beyondbestbrainrots > 0 then
+        sendWebhook(beyondbestbrainrots, getgenv().config.beyondbest_webhook) -- send beyond best brainrots to beyond best webhook
+    end
+    if #OG > 0 then
+        sendWebhook(OG, getgenv().config.og_webhook) -- send OG brainrots to OG webhook
     end
 end
 
