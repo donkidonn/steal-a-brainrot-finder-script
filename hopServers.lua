@@ -464,7 +464,13 @@ local function checkBrainrots()
 
                     -- collect all 5m+ brainrots
                     elseif value >= 5000000 then
-                        local brainrotInfo = { name = name, value = value, rawValue = unParsedValue }
+                            local brainrotInfo = {
+                                name     = name,
+                                value    = value,
+                                rawValue = unParsedValue,
+                                rarity   = rarityText,
+                                mutation = mutationtext
+                            }
                         table.insert(allBrainrots, brainrotInfo)
 
                         -- track highest
