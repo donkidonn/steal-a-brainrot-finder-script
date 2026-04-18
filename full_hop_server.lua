@@ -408,32 +408,24 @@ end
 
 local function sendToDatabase(brainrot, tier)
     local http = getHttp()
-    
+
     local success, result = pcall(function()
         return http({
             Url = SUPABASE_URL .. "/rest/v1/brainrots",
             Method = "POST",
             Headers = supabaseHeaders,
             Body = httpService:JSONEncode({
-                name = brainrot.name,
-                value = brainrot.value,
+                name      = brainrot.name,
+                value     = brainrot.value,
                 raw_value = brainrot.rawValue,
-                tier = tier,
+                tier      = tier,
                 server_id = game.JobId,
-                found_by = username
+                found_by  = username,
+                rarity    = brainrot.rarity or nil,
+                mutation  = brainrot.mutation ~= "" and brainrot.mutation or nil
             })
         })
     end)
-    
-    if success then
-        if result.StatusCode == 201 then
-            print("Saved to database: " .. brainrot.name)
-        else
-            print("Database error: " .. result.StatusCode .. " - " .. result.Body)
-        end
-    else
-        print("Database save failed: " .. tostring(result))
-    end
 end
 
 --check for brainrots in the server
@@ -469,7 +461,13 @@ local function checkBrainrots()
 
                     -- collect OG separately
                     if rarityText == "OG" then
-                        local brainrotInfo = { name = name, value = value, rawValue = unParsedValue }
+                        local brainrotInfo = { 
+                            name     = name, 
+                            value    = value, 
+                            rawValue = unParsedValue,
+                            rarity   = rarityText,
+                            mutation = mutationtext
+                        }
                         table.insert(OG, brainrotInfo)
                         task.spawn(function() sendToDatabase(brainrotInfo, "OG") end)
                         hasOG = true
