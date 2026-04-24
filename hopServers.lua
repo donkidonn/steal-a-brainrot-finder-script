@@ -323,7 +323,6 @@ local function sendWebhook(brainrotList, webhookUrl)
     table.sort(brainrotList, function(a, b) return a.value > b.value end)
 
     local biggest  = brainrotList[1]
-    local imageUrl = getImageUrl(biggest.name)
     local unixTime = os.time()
 
     local allList = ""
@@ -362,8 +361,7 @@ local function sendWebhook(brainrotList, webhookUrl)
                     inline = false
                 }
             },
-            footer    = { text = "🤖 Grand Notifier" },
-            thumbnail = imageUrl and { url = imageUrl } or nil
+            footer    = { text = "🤖 Grand Notifier" }
         }}
     }
 

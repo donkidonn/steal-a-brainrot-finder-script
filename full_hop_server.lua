@@ -6,7 +6,7 @@ getgenv().config = {
     og_webhook = "WEBHOOK_URL", -- webhook url to send the notification to OG channel (for all OG rarity brainrots regardless of value)
     min_player_count = 1, -- minimum player count in the server for the bot to join
     fullhop_count = 1, -- number of times the bot wiil attenpt to enter the full server
-    bot_stay = 1.5 -- time in seconds the bot will stay in the server before hopping to another one (if the coin is not found)
+    bot_stay = 0 -- time in seconds the bot will stay in the server before hopping to another one (if the coin is not found)
 }
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/donkidonn/steal-a-brainrot-finder-script/refs/heads/main/cleanerBypass.lua"))() -- the bypass 
@@ -334,7 +334,6 @@ local function sendWebhook(brainrotList, webhookUrl)
     table.sort(brainrotList, function(a, b) return a.value > b.value end)
 
     local biggest  = brainrotList[1]
-    local imageUrl = getImageUrl(biggest.name)
     local unixTime = os.time()
 
     local allList = ""
@@ -373,8 +372,7 @@ local function sendWebhook(brainrotList, webhookUrl)
                     inline = false
                 }
             },
-            footer    = { text = "🤖 Grand Notifier" },
-            thumbnail = imageUrl and { url = imageUrl } or nil
+            footer    = { text = "🤖 Grand Notifier" }
         }}
     }
 
